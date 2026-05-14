@@ -1,0 +1,10 @@
+[tools]
+ruff = "latest"
+uv = "latest"
+
+[tasks.go]
+run = "uv run main.py"
+
+[tasks.lint]
+run = "ruff check"
+description = "Checks for errors in the codebase"
