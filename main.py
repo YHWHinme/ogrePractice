@@ -1,9 +1,10 @@
-import cv2
-import numpy as np
-import glfw
-from OpenGL.GL import *
-import pywavefront
 from pathlib import Path
+
+import cv2
+import glfw
+import numpy as np
+import pywavefront
+from OpenGL.GL import *
 
 CAMERA_INDEX = 0
 FRAME_WIDTH = 640
@@ -19,11 +20,7 @@ FY = FRAME_WIDTH
 CX = FRAME_WIDTH / 2.0
 CY = FRAME_HEIGHT / 2.0
 
-CAMERA_MATRIX = np.array([
-    [FX,  0, CX],
-    [ 0, FY, CY],
-    [ 0,  0,  1]
-], dtype=np.float64)
+CAMERA_MATRIX = np.array([[FX, 0, CX], [0, FY, CY], [0, 0, 1]], dtype=np.float64)
 
 DIST_COEFFS = np.zeros(4, dtype=np.float64)
 
@@ -52,22 +49,17 @@ def modelview_matrix(rvec, tvec):
     pose = np.eye(4, dtype=np.float32)
     pose[:3, :3] = R
     pose[:3, 3] = t
-    flip = np.array([
-        [1,  0,  0,  0],
-        [0, -1,  0,  0],
-        [0,  0, -1,  0],
-        [0,  0,  0,  1]
-    ], np.float32)
+    flip = np.array(
+        [[1, 0, 0, 0], [0, -1, 0, 0], [0, 0, -1, 0], [0, 0, 0, 1]], np.float32
+    )
     return (flip @ np.linalg.inv(pose)).T.flatten()
 
 
-def render_mesh(mesh):
-    verts = mesh.vertices
+def render_mesh(verts, faces):
     glBegin(GL_TRIANGLES)
-    for face in mesh.faces:
+    for face in faces:
         for idx in face:
-            i = idx * 3
-            glVertex3f(verts[i], verts[i + 1], verts[i + 2])
+            glVertex3f(*verts[idx][:3])
     glEnd()
 
 
@@ -81,7 +73,7 @@ def main():
 
     try:
         scene = pywavefront.Wavefront(MODEL_PATH, collect_faces=True)
-        meshes = scene.mesh_list
+        meshes = [(scene.vertices, m.faces) for m in scene.mesh_list]
         print(f"loaded {len(meshes)} mesh(es) from {MODEL_PATH}")
     except Exception as e:
         print(f"error loading model: {e}")
@@ -122,9 +114,21 @@ def main():
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         corners, ids, _ = detector.detectMarkers(gray)
 
-        rgb = cv2.flip(cv2.cvtColor(frame, cv2.COLOR_BGR2RGB), 0)
+        print(ids)
+
+        rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
         glBindTexture(GL_TEXTURE_2D, tex)
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, FRAME_WIDTH, FRAME_HEIGHT, 0, GL_RGB, GL_UNSIGNED_BYTE, rgb)
+        glTexImage2D(
+            GL_TEXTURE_2D,
+            0,
+            GL_RGB,
+            FRAME_WIDTH,
+            FRAME_HEIGHT,
+            0,
+            GL_RGB,
+            GL_UNSIGNED_BYTE,
+            rgb,
+        )
 
         glViewport(0, 0, FRAME_WIDTH, FRAME_HEIGHT)
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
@@ -141,11 +145,11 @@ def main():
         glTexCoord2f(0, 1)
         glVertex2f(-1, -1)
         glTexCoord2f(1, 1)
-        glVertex2f( 1, -1)
+        glVertex2f(1, -1)
         glTexCoord2f(1, 0)
-        glVertex2f( 1,  1)
+        glVertex2f(1, 1)
         glTexCoord2f(0, 0)
-        glVertex2f(-1,  1)
+        glVertex2f(-1, 1)
         glEnd()
         glDisable(GL_TEXTURE_2D)
 
@@ -165,8 +169,8 @@ def main():
                 mv = modelview_matrix(rvecs[i][0], tvecs[i][0])
                 glLoadMatrixf(mv)
                 glScalef(MODEL_SCALE, MODEL_SCALE, MODEL_SCALE)
-                for mesh in meshes:
-                    render_mesh(mesh)
+                for verts, faces in meshes:
+                    render_mesh(verts, faces)
 
             glDisable(GL_DEPTH_TEST)
             glDisable(GL_LIGHTING)
