@@ -24,6 +24,15 @@ CAMERA_MATRIX = np.array([[FX, 0, CX], [0, FY, CY], [0, 0, 1]], dtype=np.float64
 
 DIST_COEFFS = np.zeros(4, dtype=np.float64)
 
+VERTEX_FORMATS = {
+    "V3F": GL_V3F,
+    "C3F_V3F": GL_C3F_V3F,
+    "N3F_V3F": GL_N3F_V3F,
+    "T2F_V3F": GL_T2F_V3F,
+    "T2F_C3F_V3F": GL_T2F_C3F_V3F,
+    "T2F_N3F_V3F": GL_T2F_N3F_V3F,
+}
+
 
 def projection_matrix(k, w, h, near, far):
     fx, fy = k[0, 0], k[1, 1]
@@ -55,12 +64,21 @@ def modelview_matrix(rvec, tvec):
     return (flip @ np.linalg.inv(pose)).T.flatten()
 
 
-def render_mesh(verts, faces):
-    glBegin(GL_TRIANGLES)
-    for face in faces:
-        for idx in face:
-            glVertex3f(*verts[idx][:3])
-    glEnd()
+def draw_material(material):
+    """Draw a single material using interleaved vertex arrays"""
+    if not material.vertices:
+        return
+
+    if not hasattr(material, "gl_floats") or material.gl_floats is None:
+        material.gl_floats = (GLfloat * len(material.vertices))(*material.vertices)
+        material.triangle_count = int(len(material.vertices) / material.vertex_size)
+
+    vertex_format = VERTEX_FORMATS.get(material.vertex_format)
+    if not vertex_format:
+        return
+
+    glInterleavedArrays(vertex_format, 0, material.gl_floats)
+    glDrawArrays(GL_TRIANGLES, 0, material.triangle_count)
 
 
 def main():
@@ -73,11 +91,14 @@ def main():
 
     try:
         scene = pywavefront.Wavefront(MODEL_PATH, collect_faces=True)
-        meshes = [(scene.vertices, m.faces) for m in scene.mesh_list]
-        print(f"loaded {len(meshes)} mesh(es) from {MODEL_PATH}")
+        materials = []
+        for name, material in scene.materials.items():
+            if material.vertices:
+                materials.append(material)
+        print(f"loaded {len(materials)} material(s) from {MODEL_PATH}")
     except Exception as e:
         print(f"error loading model: {e}")
-        meshes = []
+        materials = []
 
     dict_ = cv2.aruco.getPredefinedDictionary(cv2.aruco.DICT_6X6_250)
     detector = cv2.aruco.ArucoDetector(dict_, cv2.aruco.DetectorParameters())
@@ -169,8 +190,8 @@ def main():
                 mv = modelview_matrix(rvecs[i][0], tvecs[i][0])
                 glLoadMatrixf(mv)
                 glScalef(MODEL_SCALE, MODEL_SCALE, MODEL_SCALE)
-                for verts, faces in meshes:
-                    render_mesh(verts, faces)
+                for material in materials:
+                    draw_material(material)
 
             glDisable(GL_DEPTH_TEST)
             glDisable(GL_LIGHTING)
