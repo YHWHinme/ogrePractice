@@ -66,19 +66,33 @@ def modelview_matrix(rvec, tvec):
 
 def draw_material(material):
     """Draw a single material using interleaved vertex arrays"""
+    print(
+        f"draw_material: vertices={len(material.vertices) if material.vertices else 0}, format={material.vertex_format}"
+    )
+
     if not material.vertices:
+        print("  -> no vertices, returning")
         return
 
-    if not hasattr(material, "gl_floats") or material.gl_floats is None:
-        material.gl_floats = (GLfloat * len(material.vertices))(*material.vertices)
-        material.triangle_count = int(len(material.vertices) / material.vertex_size)
+    vertex_size = material.vertex_size
+    triangle_count = int(len(material.vertices) / vertex_size)
+    print(f"  -> vertex_size={vertex_size}, triangle_count={triangle_count}")
+
+    try:
+        gl_floats = (GLfloat * len(material.vertices))(*material.vertices)
+    except Exception as e:
+        print(f"  -> ERROR: {e}")
+        return
 
     vertex_format = VERTEX_FORMATS.get(material.vertex_format)
+    print(f"  -> vertex_format={vertex_format} (from '{material.vertex_format}')")
     if not vertex_format:
+        print("  -> ERROR: unknown format")
         return
 
-    glInterleavedArrays(vertex_format, 0, material.gl_floats)
-    glDrawArrays(GL_TRIANGLES, 0, material.triangle_count)
+    print("  -> calling glInterleavedArrays and glDrawArrays")
+    glInterleavedArrays(vertex_format, 0, gl_floats)
+    glDrawArrays(GL_TRIANGLES, 0, triangle_count)
 
 
 def main():
