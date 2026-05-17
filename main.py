@@ -188,6 +188,25 @@ def main():
         glEnd()
         glDisable(GL_TEXTURE_2D)
 
+        # Validation: draw a red rectangle at the top
+        glDisable(GL_TEXTURE_2D)
+        glDisable(GL_LIGHTING)
+        glDisable(GL_DEPTH_TEST)
+
+        glMatrixMode(GL_PROJECTION)
+        glLoadIdentity()
+        glOrtho(-1, 1, -1, 1, -1, 1)
+        glMatrixMode(GL_MODELVIEW)
+        glLoadIdentity()
+
+        glColor3f(1, 0, 0)
+        glBegin(GL_QUADS)
+        glVertex2f(-0.2, 0.7)
+        glVertex2f(0.2, 0.7)
+        glVertex2f(0.2, 0.9)
+        glVertex2f(-0.2, 0.9)
+        glEnd()
+
         if ids is not None:
             rvecs, tvecs, _ = cv2.aruco.estimatePoseSingleMarkers(
                 corners, MARKER_LENGTH, CAMERA_MATRIX, DIST_COEFFS
